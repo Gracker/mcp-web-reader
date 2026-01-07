@@ -31,6 +31,8 @@ npx playwright install chromium
 
 ## Configuration
 
+### Claude Desktop
+
 Add to your Claude Desktop config file:
 
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -44,6 +46,19 @@ Add to your Claude Desktop config file:
     }
   }
 }
+```
+
+### Claude Code (Terminal)
+
+For Claude Code users, add the MCP server using the command line:
+
+```bash
+claude mcp add web-reader -- mcp-web-reader
+```
+
+To verify the server is configured:
+```bash
+claude mcp list
 ```
 
 ## Usage
