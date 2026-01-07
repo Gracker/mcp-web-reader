@@ -30,10 +30,23 @@ npm run build
 npx playwright install chromium
 ```
 
-### 方法 2：使用 npm 安装（如果已发布）
+### 方法 2：使用 npm 安装（推荐）
+
+发布后，您可以简单地通过 npm 安装：
 
 ```bash
 npm install -g mcp-web-reader
+```
+
+**首次发布步骤**：
+如果这是第一次发布，请运行提供的发布脚本：
+
+```bash
+# 确保已登录 npm
+npm login
+
+# 运行发布脚本
+./publish.sh
 ```
 
 ## 配置
