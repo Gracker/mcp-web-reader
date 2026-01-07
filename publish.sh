@@ -13,17 +13,23 @@ else
     exit 1
 fi
 
-# 检查包名是否可用
+# 检查包状态
 echo ""
-echo "📋 检查包名可用性..."
+echo "📋 检查包状态..."
+CURRENT_USER=$(npm whoami)
 if npm view mcp-web-reader > /dev/null 2>&1; then
-    echo "⚠️  包名 'mcp-web-reader' 已被占用"
-    echo "请考虑以下选项:"
-    echo "1. 联系现有包维护者"
-    echo "2. 更改包名 (修改 package.json 中的 name 字段)"
-    exit 1
+    # 包存在，检查是否是维护者
+    MAINTAINERS=$(npm view mcp-web-reader maintainers --json 2>/dev/null | jq -r '.[].name' 2>/dev/null || echo "")
+    if echo "$MAINTAINERS" | grep -q "^${CURRENT_USER}$"; then
+        echo "✅ 包 'mcp-web-reader' 已存在，你是维护者，可以发布新版本"
+    else
+        echo "⚠️  包名 'mcp-web-reader' 已被其他用户占用"
+        echo "当前维护者: $MAINTAINERS"
+        echo "请考虑更改包名 (修改 package.json 中的 name 字段)"
+        exit 1
+    fi
 else
-    echo "✅ 包名 'mcp-web-reader' 可用"
+    echo "✅ 包名 'mcp-web-reader' 可用，可以发布"
 fi
 
 # 显示包信息
@@ -48,7 +54,7 @@ if npm publish; then
     echo ""
     echo "🎉 发布成功!"
     echo "📦 包名: mcp-web-reader"
-    echo "🏷️  版本: 2.0.0"
+    echo "🏷️  版本: $(node -p "require('./package.json').version")"
     echo "📖 安装方法:"
     echo "   npm install -g mcp-web-reader"
     echo ""
