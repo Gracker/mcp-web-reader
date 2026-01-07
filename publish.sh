@@ -19,13 +19,17 @@ echo "📋 检查包状态..."
 CURRENT_USER=$(npm whoami)
 if npm view mcp-web-reader > /dev/null 2>&1; then
     # 包存在，检查是否是维护者
-    MAINTAINERS=$(npm view mcp-web-reader maintainers --json 2>/dev/null | jq -r '.[].name' 2>/dev/null || echo "")
-    if echo "$MAINTAINERS" | grep -q "^${CURRENT_USER}$"; then
+    echo "🔍 检查维护者权限..."
+    if npm owner ls mcp-web-reader 2>/dev/null | grep -q "$CURRENT_USER"; then
         echo "✅ 包 'mcp-web-reader' 已存在，你是维护者，可以发布新版本"
     else
         echo "⚠️  包名 'mcp-web-reader' 已被其他用户占用"
-        echo "当前维护者: $MAINTAINERS"
-        echo "请考虑更改包名 (修改 package.json 中的 name 字段)"
+        echo "当前维护者列表:"
+        npm owner ls mcp-web-reader 2>/dev/null || echo "无法获取维护者列表"
+        echo ""
+        echo "请考虑以下选项:"
+        echo "1. 联系现有包维护者"
+        echo "2. 更改包名 (修改 package.json 中的 name 字段)"
         exit 1
     fi
 else
