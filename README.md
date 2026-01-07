@@ -38,6 +38,8 @@ npm install -g mcp-web-reader
 
 ## 配置
 
+### 快速配置
+
 在 Claude Desktop 的配置文件中添加：
 
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -55,7 +57,52 @@ npm install -g mcp-web-reader
 }
 ```
 
+**重要**: 将 `/absolute/path/to/mcp-web-reader/dist/index.js` 替换为你的实际路径。
+
+### 详细配置指南
+
+📖 **完整的使用指南**：请查看 [USAGE_GUIDE.md](./USAGE_GUIDE.md)，包含：
+- **命令行使用（推荐）** - 适合使用 CLI 的用户
+- Claude Desktop 配置
+- Claude Code (Cursor) 配置
+- 其他 MCP 客户端配置
+- 使用示例和故障排除
+
+📖 **命令行专用指南**：请查看 [CLI_USAGE.md](./CLI_USAGE.md)，包含：
+- 使用 MCP Inspector 测试
+- 创建 CLI 包装器
+- 集成到自定义脚本
+- 命令行工具使用示例
+
 ## 使用方法
+
+### 命令行使用（推荐）
+
+如果你主要使用命令行的 Claude，可以使用提供的 CLI 工具：
+
+```bash
+# 智能获取（自动降级）
+node cli.js fetch https://example.com
+
+# 强制使用 Jina Reader
+node cli.js jina https://example.com
+
+# 强制使用本地解析
+node cli.js local https://example.com
+
+# 强制使用浏览器模式（适用于微信文章等受限网站）
+node cli.js browser https://mp.weixin.qq.com/...
+```
+
+或者使用 MCP Inspector 进行交互式测试：
+
+```bash
+npx @modelcontextprotocol/inspector node dist/index.js
+```
+
+📖 详细说明请查看 [CLI_USAGE.md](./CLI_USAGE.md)
+
+### 在 Claude 中使用
 
 配置完成后，在 Claude 中可以使用以下命令：
 
@@ -134,6 +181,56 @@ npx playwright install chromium
 - 🚫 **资源过滤** - 阻止图片、样式表等不必要加载
 - 🎯 **智能选择** - 优先使用快速方法，必要时才用浏览器
 - 💾 **优雅关闭** - 正确清理浏览器资源
+
+## 验证安装
+
+### 测试 MCP 服务器
+
+1. **使用 MCP Inspector 测试**：
+```bash
+npx @modelcontextprotocol/inspector node dist/index.js
+```
+
+2. **测试工具功能**：
+在 Inspector 中输入以下 JSON 测试各种工具：
+```json
+{"method": "tools/call", "params": {"name": "fetch_url", "arguments": {"url": "https://example.com"}}}
+```
+
+### 在 Claude Desktop 中验证
+
+配置完成后，重启 Claude Desktop，然后在对话中输入：
+- "请获取 https://httpbin.org/json 的内容"
+
+如果能成功返回内容，说明安装成功。
+
+## 故障排除
+
+### 常见问题
+
+1. **"找不到模块" 错误**
+   - 确保已运行 `npm install`
+   - 确保已运行 `npm run build`
+
+2. **Claude Desktop 无法连接到 MCP 服务器**
+   - 检查配置文件路径是否正确
+   - 检查 `dist/index.js` 路径是否正确
+   - 重启 Claude Desktop
+
+3. **Playwright 浏览器相关错误**
+   - 确保已运行 `npx playwright install chromium`
+   - 检查系统是否支持图形界面（某些服务器环境可能需要额外配置）
+
+4. **微信文章无法获取**
+   - 微信文章需要 Playwright 浏览器模式
+   - 使用 `fetch_url_with_browser` 工具强制使用浏览器
+
+### 调试模式
+
+启用详细日志：
+```bash
+DEBUG=* node dist/index.js
+```
 
 ## 贡献
 

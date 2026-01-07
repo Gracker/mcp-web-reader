@@ -44,7 +44,14 @@ async function getBrowser(): Promise<Browser> {
   if (!browser) {
     browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      args: [
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-blink-features=AutomationControlled',  // 禁用自动化检测
+        '--disable-infobars',
+        '--window-size=1920,1080',
+        '--start-maximized',
+      ],
     });
   }
   return browser;
@@ -68,6 +75,11 @@ function isValidUrl(urlString: string): boolean {
   }
 }
 
+// 检测是否是微信文章链接
+function isWeixinUrl(url: string): boolean {
+  return url.includes('mp.weixin.qq.com') || url.includes('weixin.qq.com');
+}
+
 // 检测是否需要使用浏览器模式
 function shouldUseBrowser(error: Error, statusCode?: number, content?: string): boolean {
   const errorMessage = error.message.toLowerCase();
@@ -88,7 +100,9 @@ function shouldUseBrowser(error: Error, statusCode?: number, content?: string): 
     'security',
     'blocked',
     'protection',
-    'verification required'
+    'verification required',
+    '环境异常',
+    '验证'
   ];
   
   if (browserTriggers.some(trigger => errorMessage.includes(trigger))) {
@@ -104,7 +118,12 @@ function shouldUseBrowser(error: Error, statusCode?: number, content?: string): 
       'access denied',
       'security check',
       'human verification',
-      'captcha'
+      'captcha',
+      // 微信特有的验证关键词
+      '环境异常',
+      '去验证',
+      '完成验证后即可继续访问',
+      'verify'
     ];
     
     if (contentTriggers.some(trigger => contentLower.includes(trigger))) {
@@ -187,35 +206,47 @@ async function fetchWithPlaywright(url: string): Promise<{
   };
 }> {
   let page: Page | null = null;
+  const isWeixin = isWeixinUrl(url);
   
   try {
     const browserInstance = await getBrowser();
     page = await browserInstance.newPage();
     
-    // 设置更真实的User-Agent和viewport
-    await page.setViewportSize({ width: 1920, height: 1080 });
+    // 设置真实的 User-Agent（模拟 Chrome on Mac）
+    const userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     await page.setExtraHTTPHeaders({
+      'User-Agent': userAgent,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      ...(isWeixin ? { 'Referer': 'https://mp.weixin.qq.com/' } : {}),
     });
     
-    // 阻止加载图片、样式表等资源以提高速度
-    await page.route('**/*', (route) => {
-      const resourceType = route.request().resourceType();
-      if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
-        route.abort();
-      } else {
-        route.continue();
-      }
-    });
+    await page.setViewportSize({ width: 1920, height: 1080 });
     
-    // 导航到页面，设置30秒超时
+    // 微信文章需要加载样式以正确渲染，其他网站可以过滤
+    if (!isWeixin) {
+      await page.route('**/*', (route) => {
+        const resourceType = route.request().resourceType();
+        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+          route.abort();
+        } else {
+          route.continue();
+        }
+      });
+    }
+    
+    // 导航到页面，设置更长的超时时间
     await page.goto(url, { 
-      timeout: 30000,
-      waitUntil: 'domcontentloaded' 
+      timeout: 45000,
+      waitUntil: 'networkidle'  // 等待网络空闲，确保 JS 完全执行
     });
     
-    // 等待页面内容加载
-    await page.waitForTimeout(2000);
+    // 微信文章需要更长的等待时间
+    const waitTime = isWeixin ? 5000 : 2000;
+    await page.waitForTimeout(waitTime);
     
     // 获取页面标题
     const title = await page.title() || "无标题";
@@ -228,8 +259,16 @@ async function fetchWithPlaywright(url: string): Promise<{
       elementsToRemove.forEach(el => el.remove());
     });
     
-    // 获取主要内容
+    // 获取主要内容（微信文章有特定的 DOM 结构）
     const htmlContent = await page.evaluate(() => {
+      // 微信文章特定选择器
+      const weixinContent = document.querySelector('#js_content') || 
+                            document.querySelector('.rich_media_content');
+      if (weixinContent) {
+        return weixinContent.innerHTML;
+      }
+      
+      // 通用选择器
       const mainContent = 
         document.querySelector('main') || 
         document.querySelector('article') || 
@@ -363,6 +402,7 @@ async function fetchWithLocalParser(url: string): Promise<{
 }
 
 // 智能获取网页内容（三层降级策略：Jina → 本地 → Playwright）
+// 对于微信等已知需要浏览器的网站，直接使用浏览器模式
 async function fetchWebContent(url: string, preferJina: boolean = true): Promise<{
   title: string;
   content: string;
@@ -373,6 +413,12 @@ async function fetchWebContent(url: string, preferJina: boolean = true): Promise
     method: string;
   };
 }> {
+  // 微信文章直接使用浏览器模式，因为其他方式无法绕过验证
+  if (isWeixinUrl(url)) {
+    console.error("检测到微信文章，直接使用Playwright浏览器模式");
+    return await fetchWithPlaywright(url);
+  }
+  
   if (preferJina) {
     // 第一层：尝试Jina Reader
     try {

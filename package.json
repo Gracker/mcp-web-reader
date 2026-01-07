@@ -4,11 +4,12 @@
     "description": "MCP server for reading web content with Jina Reader and local parser support",
     "main": "dist/index.js",
     "type": "module",
-    "scripts": {
-      "build": "tsc",
-      "start": "node dist/index.js",
-      "dev": "tsc --watch"
-    },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "claude-code": "node dist/index.js"
+  },
     "keywords": ["mcp", "claude", "web-scraping", "jina-reader"],
     "author": "Your Name",
     "license": "MIT",
