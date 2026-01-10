@@ -11,7 +11,7 @@ import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { chromium, Browser, Page } from "playwright";
 
-// 创建服务器实例
+// Create server instance
 const server = new Server(
   {
     name: "web-reader",
@@ -24,22 +24,22 @@ const server = new Server(
   }
 );
 
-// 初始化Turndown服务（将HTML转换为Markdown）
+// Initialize Turndown service (convert HTML to Markdown)
 const turndownService = new TurndownService({
   headingStyle: "atx",
   codeBlockStyle: "fenced",
 });
 
-// 配置Turndown规则
+// Configure Turndown rules
 turndownService.addRule("skipScripts", {
   filter: ["script", "style", "noscript"],
   replacement: () => "",
 });
 
-// 浏览器实例管理
+// Browser instance management
 let browser: Browser | null = null;
 
-// 获取或创建浏览器实例
+// Get or create browser instance
 async function getBrowser(): Promise<Browser> {
   if (!browser) {
     browser = await chromium.launch({
@@ -47,7 +47,7 @@ async function getBrowser(): Promise<Browser> {
       args: [
         '--no-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-blink-features=AutomationControlled',  // 禁用自动化检测
+        '--disable-blink-features=AutomationControlled',  // Disable automation detection
         '--disable-infobars',
         '--window-size=1920,1080',
         '--start-maximized',
@@ -57,7 +57,7 @@ async function getBrowser(): Promise<Browser> {
   return browser;
 }
 
-// 清理浏览器实例
+// Clean up browser instance
 async function closeBrowser(): Promise<void> {
   if (browser) {
     await browser.close();
@@ -65,7 +65,7 @@ async function closeBrowser(): Promise<void> {
   }
 }
 
-// URL验证函数
+// URL validation function
 function isValidUrl(urlString: string): boolean {
   try {
     const url = new URL(urlString);
@@ -75,21 +75,21 @@ function isValidUrl(urlString: string): boolean {
   }
 }
 
-// 检测是否是微信文章链接
+// Check if it's a WeChat article link
 function isWeixinUrl(url: string): boolean {
   return url.includes('mp.weixin.qq.com') || url.includes('weixin.qq.com');
 }
 
-// 检测是否需要使用浏览器模式
+// Check if browser mode is needed
 function shouldUseBrowser(error: Error, statusCode?: number, content?: string): boolean {
   const errorMessage = error.message.toLowerCase();
-  
-  // 基于HTTP状态码判断
+
+  // Based on HTTP status codes
   if (statusCode && [403, 429, 503, 520, 521, 522, 523, 524].includes(statusCode)) {
     return true;
   }
-  
-  // 基于错误消息判断
+
+  // Based on error messages
   const browserTriggers = [
     'cloudflare',
     'access denied',
@@ -101,15 +101,15 @@ function shouldUseBrowser(error: Error, statusCode?: number, content?: string): 
     'blocked',
     'protection',
     'verification required',
-    '环境异常',
-    '验证'
+    'environment anomaly',
+    'verify'
   ];
-  
+
   if (browserTriggers.some(trigger => errorMessage.includes(trigger))) {
     return true;
   }
-  
-  // 基于响应内容判断
+
+  // Based on response content
   if (content) {
     const contentLower = content.toLowerCase();
     const contentTriggers = [
@@ -119,22 +119,22 @@ function shouldUseBrowser(error: Error, statusCode?: number, content?: string): 
       'security check',
       'human verification',
       'captcha',
-      // 微信特有的验证关键词
-      '环境异常',
-      '去验证',
-      '完成验证后即可继续访问',
+      // WeChat-specific verification keywords
+      'environment anomaly',
+      'verify',
+      'complete verification to continue',
       'verify'
     ];
-    
+
     if (contentTriggers.some(trigger => contentLower.includes(trigger))) {
       return true;
     }
   }
-  
+
   return false;
 }
 
-// 使用Jina Reader获取内容
+// Fetch content using Jina Reader
 async function fetchWithJinaReader(url: string): Promise<{
   title: string;
   content: string;
@@ -148,11 +148,11 @@ async function fetchWithJinaReader(url: string): Promise<{
   try {
     // Jina Reader API URL
     const jinaUrl = `https://r.jina.ai/${url}`;
-    
-    // 创建超时控制器
+
+    // Create timeout controller
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
-    
+
     const response = await fetch(jinaUrl, {
       headers: {
         "Accept": "text/markdown",
@@ -160,7 +160,7 @@ async function fetchWithJinaReader(url: string): Promise<{
       },
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
 
     if (!response.ok) {
@@ -168,11 +168,11 @@ async function fetchWithJinaReader(url: string): Promise<{
     }
 
     const markdown = await response.text();
-    
-    // 从Markdown中提取标题（通常是第一个#标题）
+
+    // Extract title from Markdown (usually the first # heading)
     const titleMatch = markdown.match(/^#\s+(.+)$/m);
-    const title = titleMatch ? titleMatch[1] : "无标题";
-    
+    const title = titleMatch ? titleMatch[1] : "No title";
+
     return {
       title,
       content: markdown,
@@ -186,15 +186,15 @@ async function fetchWithJinaReader(url: string): Promise<{
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        throw new Error(`Jina Reader请求超时（30秒）`);
+        throw new Error(`Jina Reader request timeout (30s)`);
       }
-      throw new Error(`Jina Reader获取失败: ${error.message}`);
+      throw new Error(`Jina Reader fetch failed: ${error.message}`);
     }
-    throw new Error(`Jina Reader获取失败: ${String(error)}`);
+    throw new Error(`Jina Reader fetch failed: ${String(error)}`);
   }
 }
 
-// 使用Playwright获取网页内容
+// Fetch web content using Playwright
 async function fetchWithPlaywright(url: string): Promise<{
   title: string;
   content: string;
@@ -207,12 +207,12 @@ async function fetchWithPlaywright(url: string): Promise<{
 }> {
   let page: Page | null = null;
   const isWeixin = isWeixinUrl(url);
-  
+
   try {
     const browserInstance = await getBrowser();
     page = await browserInstance.newPage();
-    
-    // 设置真实的 User-Agent（模拟 Chrome on Mac）
+
+    // Set real User-Agent (simulate Chrome on Mac)
     const userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     await page.setExtraHTTPHeaders({
       'User-Agent': userAgent,
@@ -223,10 +223,10 @@ async function fetchWithPlaywright(url: string): Promise<{
       'Pragma': 'no-cache',
       ...(isWeixin ? { 'Referer': 'https://mp.weixin.qq.com/' } : {}),
     });
-    
+
     await page.setViewportSize({ width: 1920, height: 1080 });
-    
-    // 微信文章需要加载样式以正确渲染，其他网站可以过滤
+
+    // WeChat articles need to load styles for correct rendering, filter for other sites
     if (!isWeixin) {
       await page.route('**/*', (route) => {
         const resourceType = route.request().resourceType();
@@ -237,60 +237,60 @@ async function fetchWithPlaywright(url: string): Promise<{
         }
       });
     }
-    
-    // 导航到页面，设置更长的超时时间
-    await page.goto(url, { 
+
+    // Navigate to page with longer timeout
+    await page.goto(url, {
       timeout: 45000,
-      waitUntil: 'networkidle'  // 等待网络空闲，确保 JS 完全执行
+      waitUntil: 'networkidle'  // Wait for network idle to ensure JS execution
     });
-    
-    // 微信文章需要更长的等待时间
+
+    // WeChat articles need longer wait time
     const waitTime = isWeixin ? 5000 : 2000;
     await page.waitForTimeout(waitTime);
-    
-    // 获取页面标题
-    const title = await page.title() || "无标题";
-    
-    // 移除不需要的元素
+
+    // Get page title
+    const title = await page.title() || "No title";
+
+    // Remove unwanted elements
     await page.evaluate(() => {
       const elementsToRemove = document.querySelectorAll(
         'script, style, nav, header, footer, aside, .advertisement, .ads, .sidebar, .comments, .social-share'
       );
       elementsToRemove.forEach(el => el.remove());
     });
-    
-    // 获取主要内容（微信文章有特定的 DOM 结构）
+
+    // Get main content (WeChat articles have specific DOM structure)
     const htmlContent = await page.evaluate(() => {
-      // 微信文章特定选择器
-      const weixinContent = document.querySelector('#js_content') || 
+      // WeChat article specific selectors
+      const weixinContent = document.querySelector('#js_content') ||
                             document.querySelector('.rich_media_content');
       if (weixinContent) {
         return weixinContent.innerHTML;
       }
-      
-      // 通用选择器
-      const mainContent = 
-        document.querySelector('main') || 
-        document.querySelector('article') || 
+
+      // Common selectors
+      const mainContent =
+        document.querySelector('main') ||
+        document.querySelector('article') ||
         document.querySelector('[role="main"]') ||
         document.querySelector('.content') ||
         document.querySelector('#content') ||
         document.querySelector('.post') ||
         document.querySelector('.entry-content') ||
         document.body;
-      
+
       return mainContent ? mainContent.innerHTML : document.body.innerHTML;
     });
-    
-    // 转换为Markdown
+
+    // Convert to Markdown
     const markdown = turndownService.turndown(htmlContent);
-    
-    // 清理内容
+
+    // Clean content
     const cleanedContent = markdown
       .replace(/\n{3,}/g, "\n\n")
       .replace(/^\s+$/gm, "")
       .trim();
-    
+
     return {
       title,
       content: cleanedContent,
@@ -301,12 +301,12 @@ async function fetchWithPlaywright(url: string): Promise<{
         method: "playwright-browser",
       },
     };
-    
+
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`Playwright获取失败: ${error.message}`);
+      throw new Error(`Playwright fetch failed: ${error.message}`);
     }
-    throw new Error(`Playwright获取失败: ${String(error)}`);
+    throw new Error(`Playwright fetch failed: ${String(error)}`);
   } finally {
     if (page) {
       await page.close();
@@ -314,7 +314,7 @@ async function fetchWithPlaywright(url: string): Promise<{
   }
 }
 
-// 本地提取网页内容的函数
+// Local web content extraction function
 async function fetchWithLocalParser(url: string): Promise<{
   title: string;
   content: string;
@@ -326,60 +326,60 @@ async function fetchWithLocalParser(url: string): Promise<{
   };
 }> {
   try {
-    // 创建超时控制器
+    // Create timeout controller
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
-    
-    // 发送HTTP请求
+
+    // Send HTTP request
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; MCP-URLFetcher/2.0)",
       },
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    // 获取HTML内容
+    // Get HTML content
     const html = await response.text();
-    
-    // 使用JSDOM解析HTML
+
+    // Parse HTML with JSDOM
     const dom = new JSDOM(html);
     const document = dom.window.document;
-    
-    // 获取标题
-    const title = document.querySelector("title")?.textContent || "无标题";
-    
-    // 移除不需要的元素
+
+    // Get title
+    const title = document.querySelector("title")?.textContent || "No title";
+
+    // Remove unwanted elements
     const elementsToRemove = document.querySelectorAll(
       "script, style, nav, header, footer, aside, .advertisement, .ads, .sidebar, .comments"
     );
     elementsToRemove.forEach(el => el.remove());
-    
-    // 获取主要内容区域
-    const mainContent = 
-      document.querySelector("main") || 
-      document.querySelector("article") || 
+
+    // Get main content area
+    const mainContent =
+      document.querySelector("main") ||
+      document.querySelector("article") ||
       document.querySelector('[role="main"]') ||
       document.querySelector(".content") ||
       document.querySelector("#content") ||
       document.querySelector(".post") ||
       document.querySelector(".entry-content") ||
       document.body;
-    
-    // 转换为Markdown
+
+    // Convert to Markdown
     const markdown = turndownService.turndown(mainContent.innerHTML);
-    
-    // 清理多余的空行和空格
+
+    // Clean extra whitespace
     const cleanedContent = markdown
       .replace(/\n{3,}/g, "\n\n")
       .replace(/^\s+$/gm, "")
       .trim();
-    
+
     return {
       title,
       content: cleanedContent,
@@ -393,16 +393,16 @@ async function fetchWithLocalParser(url: string): Promise<{
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        throw new Error(`本地解析请求超时（30秒）`);
+        throw new Error(`Local parser request timeout (30s)`);
       }
-      throw new Error(`本地解析失败: ${error.message}`);
+      throw new Error(`Local parser failed: ${error.message}`);
     }
-    throw new Error(`本地解析失败: ${String(error)}`);
+    throw new Error(`Local parser failed: ${String(error)}`);
   }
 }
 
-// 智能获取网页内容（三层降级策略：Jina → 本地 → Playwright）
-// 对于微信等已知需要浏览器的网站，直接使用浏览器模式
+// Smart web content fetching (three-tier fallback: Jina → Local → Playwright)
+// For known sites requiring browser (like WeChat), use browser mode directly
 async function fetchWebContent(url: string, preferJina: boolean = true): Promise<{
   title: string;
   content: string;
@@ -413,55 +413,55 @@ async function fetchWebContent(url: string, preferJina: boolean = true): Promise
     method: string;
   };
 }> {
-  // 微信文章直接使用浏览器模式，因为其他方式无法绕过验证
+  // WeChat articles use browser mode directly as other methods cannot bypass verification
   if (isWeixinUrl(url)) {
-    console.error("检测到微信文章，直接使用Playwright浏览器模式");
+    console.error("Detected WeChat article, using Playwright browser mode");
     return await fetchWithPlaywright(url);
   }
-  
+
   if (preferJina) {
-    // 第一层：尝试Jina Reader
+    // Tier 1: Try Jina Reader
     try {
       return await fetchWithJinaReader(url);
     } catch (jinaError) {
-      console.error("Jina Reader失败，尝试本地解析:", jinaError instanceof Error ? jinaError.message : String(jinaError));
-      
-      // 第二层：尝试本地解析
+      console.error("Jina Reader failed, trying local parser:", jinaError instanceof Error ? jinaError.message : String(jinaError));
+
+      // Tier 2: Try local parser
       try {
         return await fetchWithLocalParser(url);
       } catch (localError) {
-        console.error("本地解析失败，检查是否需要浏览器模式:", localError instanceof Error ? localError.message : String(localError));
-        
-        // 判断是否需要使用浏览器模式
+        console.error("Local parser failed, checking if browser mode needed:", localError instanceof Error ? localError.message : String(localError));
+
+        // Check if browser mode is needed
         const jinaErr = jinaError instanceof Error ? jinaError : new Error(String(jinaError));
         const localErr = localError instanceof Error ? localError : new Error(String(localError));
-        
+
         if (shouldUseBrowser(jinaErr) || shouldUseBrowser(localErr)) {
-          console.error("检测到访问限制，使用Playwright浏览器模式");
+          console.error("Detected access restrictions, using Playwright browser mode");
           try {
-            // 第三层：使用Playwright浏览器
+            // Tier 3: Use Playwright browser
             return await fetchWithPlaywright(url);
           } catch (browserError) {
             throw new Error(
-              `所有方法都失败了。Jina: ${jinaErr.message}, 本地: ${localErr.message}, 浏览器: ${browserError instanceof Error ? browserError.message : String(browserError)}`
+              `All methods failed. Jina: ${jinaErr.message}, Local: ${localErr.message}, Browser: ${browserError instanceof Error ? browserError.message : String(browserError)}`
             );
           }
         } else {
           throw new Error(
-            `Jina和本地解析都失败了。Jina: ${jinaErr.message}, 本地: ${localErr.message}`
+            `Jina and local parser both failed. Jina: ${jinaErr.message}, Local: ${localErr.message}`
           );
         }
       }
     }
   } else {
-    // 如果不优先使用Jina，直接从本地解析开始
+    // If not prioritizing Jina, start with local parser
     try {
       return await fetchWithLocalParser(url);
     } catch (localError) {
       const localErr = localError instanceof Error ? localError : new Error(String(localError));
-      
+
       if (shouldUseBrowser(localErr)) {
-        console.error("本地解析失败，检测到访问限制，使用Playwright浏览器模式");
+        console.error("Local parser failed, detected access restrictions, using Playwright browser mode");
         return await fetchWithPlaywright(url);
       } else {
         throw localErr;
@@ -470,23 +470,23 @@ async function fetchWebContent(url: string, preferJina: boolean = true): Promise
   }
 }
 
-// 处理工具列表请求
+// Handle tool list requests
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
         name: "fetch_url",
-        description: "获取指定URL的网页内容，并转换为Markdown格式。默认使用Jina Reader，失败时自动切换到本地解析",
+        description: "Fetch web content from specified URL and convert to Markdown format. Uses Jina Reader by default, automatically falls back to local parser on failure",
         inputSchema: {
           type: "object",
           properties: {
             url: {
               type: "string",
-              description: "要获取内容的网页URL（必须是http或https协议）",
+              description: "Webpage URL to fetch (must be http or https protocol)",
             },
             preferJina: {
               type: "boolean",
-              description: "是否优先使用Jina Reader（默认为true）",
+              description: "Whether to prioritize Jina Reader (default: true)",
               default: true,
             },
           },
@@ -495,7 +495,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "fetch_multiple_urls",
-        description: "批量获取多个URL的网页内容",
+        description: "Batch fetch web content from multiple URLs",
         inputSchema: {
           type: "object",
           properties: {
@@ -504,12 +504,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               items: {
                 type: "string",
               },
-              description: "要获取内容的网页URL列表",
-              maxItems: 10, // 限制最多10个URL
+              description: "List of webpage URLs to fetch",
+              maxItems: 10, // Limit to 10 URLs
             },
             preferJina: {
               type: "boolean",
-              description: "是否优先使用Jina Reader（默认为true）",
+              description: "Whether to prioritize Jina Reader (default: true)",
               default: true,
             },
           },
@@ -518,13 +518,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "fetch_url_with_jina",
-        description: "强制使用Jina Reader获取网页内容（适用于复杂网页）",
+        description: "Force fetch using Jina Reader (suitable for complex webpages)",
         inputSchema: {
           type: "object",
           properties: {
             url: {
               type: "string",
-              description: "要获取内容的网页URL",
+              description: "Webpage URL to fetch",
             },
           },
           required: ["url"],
@@ -532,13 +532,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "fetch_url_local",
-        description: "强制使用本地解析器获取网页内容（适用于简单网页或Jina不可用时）",
+        description: "Force fetch using local parser (suitable for simple webpages or when Jina is unavailable)",
         inputSchema: {
           type: "object",
           properties: {
             url: {
               type: "string",
-              description: "要获取内容的网页URL",
+              description: "Webpage URL to fetch",
             },
           },
           required: ["url"],
@@ -546,13 +546,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "fetch_url_with_browser",
-        description: "强制使用Playwright浏览器获取网页内容（适用于有访问限制的网站，如Cloudflare保护、验证码等）",
+        description: "Force fetch using Playwright browser (suitable for websites with access restrictions, such as Cloudflare protection, CAPTCHA, etc.)",
         inputSchema: {
           type: "object",
           properties: {
             url: {
               type: "string",
-              description: "要获取内容的网页URL",
+              description: "Webpage URL to fetch",
             },
           },
           required: ["url"],
@@ -562,111 +562,111 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   };
 });
 
-// 处理工具调用请求
+// Handle tool call requests
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
     if (name === "fetch_url") {
       const { url, preferJina = true } = args as { url: string; preferJina?: boolean };
-      
-      // 验证URL
+
+      // Validate URL
       if (!isValidUrl(url)) {
         throw new McpError(
           ErrorCode.InvalidParams,
-          "无效的URL格式，请提供http或https协议的URL"
+          "Invalid URL format, please provide http or https protocol URL"
         );
       }
-      
-      // 获取网页内容
+
+      // Fetch web content
       const result = await fetchWebContent(url, preferJina);
-      
+
       return {
         content: [
           {
             type: "text",
-            text: `# ${result.title}\n\n**URL**: ${result.metadata.url}\n**获取时间**: ${result.metadata.fetchedAt}\n**内容长度**: ${result.metadata.contentLength} 字符\n**解析方法**: ${result.metadata.method}\n\n---\n\n${result.content}`,
+            text: `# ${result.title}\n\n**URL**: ${result.metadata.url}\n**Fetched At**: ${result.metadata.fetchedAt}\n**Content Length**: ${result.metadata.contentLength} characters\n**Method**: ${result.metadata.method}\n\n---\n\n${result.content}`,
           },
         ],
       };
     } else if (name === "fetch_url_with_jina") {
       const { url } = args as { url: string };
-      
+
       if (!isValidUrl(url)) {
         throw new McpError(
           ErrorCode.InvalidParams,
-          "无效的URL格式"
+          "Invalid URL format"
         );
       }
-      
+
       const result = await fetchWithJinaReader(url);
-      
+
       return {
         content: [
           {
             type: "text",
-            text: `# ${result.title}\n\n**URL**: ${result.metadata.url}\n**获取时间**: ${result.metadata.fetchedAt}\n**内容长度**: ${result.metadata.contentLength} 字符\n**解析方法**: Jina Reader\n\n---\n\n${result.content}`,
+            text: `# ${result.title}\n\n**URL**: ${result.metadata.url}\n**Fetched At**: ${result.metadata.fetchedAt}\n**Content Length**: ${result.metadata.contentLength} characters\n**Method**: Jina Reader\n\n---\n\n${result.content}`,
           },
         ],
       };
     } else if (name === "fetch_url_local") {
       const { url } = args as { url: string };
-      
+
       if (!isValidUrl(url)) {
         throw new McpError(
           ErrorCode.InvalidParams,
-          "无效的URL格式"
+          "Invalid URL format"
         );
       }
-      
+
       const result = await fetchWithLocalParser(url);
-      
+
       return {
         content: [
           {
             type: "text",
-            text: `# ${result.title}\n\n**URL**: ${result.metadata.url}\n**获取时间**: ${result.metadata.fetchedAt}\n**内容长度**: ${result.metadata.contentLength} 字符\n**解析方法**: 本地解析器\n\n---\n\n${result.content}`,
+            text: `# ${result.title}\n\n**URL**: ${result.metadata.url}\n**Fetched At**: ${result.metadata.fetchedAt}\n**Content Length**: ${result.metadata.contentLength} characters\n**Method**: Local Parser\n\n---\n\n${result.content}`,
           },
         ],
       };
     } else if (name === "fetch_multiple_urls") {
       const { urls, preferJina = true } = args as { urls: string[]; preferJina?: boolean };
-      
-      // 验证所有URL
+
+      // Validate all URLs
       const invalidUrls = urls.filter(url => !isValidUrl(url));
       if (invalidUrls.length > 0) {
         throw new McpError(
           ErrorCode.InvalidParams,
-          `以下URL格式无效: ${invalidUrls.join(", ")}`
+          `The following URLs have invalid format: ${invalidUrls.join(", ")}`
         );
       }
-      
-      // 并发获取所有URL内容
+
+      // Fetch all URLs concurrently
       const results = await Promise.allSettled(
         urls.map(url => fetchWebContent(url, preferJina))
       );
-      
-      // 整理结果
-      let combinedContent = "# 批量URL内容获取结果\n\n";
-      
+
+      // Combine results
+      let combinedContent = "# Batch URL Content Fetch Results\n\n";
+
       results.forEach((result, index) => {
         const url = urls[index];
         combinedContent += `## ${index + 1}. ${url}\n\n`;
-        
+
         if (result.status === "fulfilled") {
           const { title, content, metadata } = result.value;
-          combinedContent += `**标题**: ${title}\n`;
-          combinedContent += `**获取时间**: ${metadata.fetchedAt}\n`;
-          combinedContent += `**内容长度**: ${metadata.contentLength} 字符\n`;
-          combinedContent += `**解析方法**: ${metadata.method}\n\n`;
-          combinedContent += `### 内容\n\n${content}\n\n`;
+          combinedContent += `**Title**: ${title}\n`;
+          combinedContent += `**Fetched At**: ${metadata.fetchedAt}\n`;
+          combinedContent += `**Content Length**: ${metadata.contentLength} characters\n`;
+          combinedContent += `**Method**: ${metadata.method}\n\n`;
+          combinedContent += `### Content\n\n${content}\n\n`;
         } else {
-          combinedContent += `**错误**: ${result.reason}\n\n`;
+          combinedContent += `**Error**: ${result.reason}\n\n`;
         }
-        
+
         combinedContent += "---\n\n";
       });
-      
+
       return {
         content: [
           {
@@ -677,28 +677,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     } else if (name === "fetch_url_with_browser") {
       const { url } = args as { url: string };
-      
+
       if (!isValidUrl(url)) {
         throw new McpError(
           ErrorCode.InvalidParams,
-          "无效的URL格式"
+          "Invalid URL format"
         );
       }
-      
+
       const result = await fetchWithPlaywright(url);
-      
+
       return {
         content: [
           {
             type: "text",
-            text: `# ${result.title}\n\n**URL**: ${result.metadata.url}\n**获取时间**: ${result.metadata.fetchedAt}\n**内容长度**: ${result.metadata.contentLength} 字符\n**解析方法**: Playwright浏览器\n\n---\n\n${result.content}`,
+            text: `# ${result.title}\n\n**URL**: ${result.metadata.url}\n**Fetched At**: ${result.metadata.fetchedAt}\n**Content Length**: ${result.metadata.contentLength} characters\n**Method**: Playwright Browser\n\n---\n\n${result.content}`,
           },
         ],
       };
     } else {
       throw new McpError(
         ErrorCode.MethodNotFound,
-        `未知的工具: ${name}`
+        `Unknown tool: ${name}`
       );
     }
   } catch (error) {
@@ -707,32 +707,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     throw new McpError(
       ErrorCode.InternalError,
-      `工具执行失败: ${error instanceof Error ? error.message : String(error)}`
+      `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 });
 
-// 启动服务器
+// Start server
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("MCP Web Reader v2.0 已启动（支持Jina Reader + Playwright）");
+  console.error("MCP Web Reader v2.0 started (with Jina Reader + Playwright support)");
 }
 
-// 优雅关闭处理
+// Graceful shutdown handling
 process.on('SIGINT', async () => {
-  console.error("接收到SIGINT信号，正在关闭浏览器...");
+  console.error("Received SIGINT signal, closing browser...");
   await closeBrowser();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.error("接收到SIGTERM信号，正在关闭浏览器...");
+  console.error("Received SIGTERM signal, closing browser...");
   await closeBrowser();
   process.exit(0);
 });
 
 main().catch((error) => {
-  console.error("服务器启动失败:", error);
+  console.error("Server startup failed:", error);
   process.exit(1);
 });

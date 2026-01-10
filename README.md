@@ -1,39 +1,45 @@
 # MCP Web Reader
 
-A powerful MCP (Model Context Protocol) server that enables Claude and other LLMs to read and parse web content. Supports bypassing access restrictions to easily fetch protected content like WeChat articles and paywalled sites.
+A powerful MCP (Model Context Protocol) server that enables Claude and other LLMs to read and parse web content. Bypasses access restrictions for WeChat articles, paywalled sites, and Cloudflare-protected pages.
+
+[简体中文](./README_CN.md)
 
 ## Features
 
-- 🚀 **Multi-engine support**: Jina Reader API, local parser, and Playwright browser
-- 🔄 **Intelligent fallback**: Auto-switches from Jina → Local → Playwright browser
-- 🌐 **Bypass restrictions**: Handles Cloudflare, CAPTCHAs, and access controls
+- 🚀 **Multi-engine**: Jina Reader API, local parser, and Playwright browser
+- 🔄 **Smart fallback**: Auto-switches Jina → Local → Playwright browser
+- 🌐 **Bypass restrictions**: Cloudflare, CAPTCHAs, access controls
 - 📦 **Batch processing**: Fetch multiple URLs simultaneously
-- 🎯 **Flexible control**: Force specific parsing methods when needed
-- 📝 **Markdown output**: Automatic conversion to clean Markdown format
+- 📝 **Markdown output**: Automatic conversion to clean Markdown
 
 ## Installation
-
-### Quick Install (Recommended)
 
 ```bash
 npm install -g mcp-web-reader
 ```
 
-### Install from Source
+> **Note**: Chromium browser (~100-200MB) will be automatically downloaded. This is required for:
+> - WeChat articles (need browser rendering)
+> - Cloudflare-protected sites
+> - JavaScript-heavy sites
+> - CAPTCHA/access restrictions
+
+Download may take 1-5 minutes depending on network speed.
+
+### From Source
 
 ```bash
 git clone https://github.com/Gracker/mcp-web-reader.git
 cd mcp-web-reader
 npm install
 npm run build
-npx playwright install chromium
 ```
 
 ## Configuration
 
 ### Claude Desktop
 
-Add to your Claude Desktop config file:
+Add to your config file:
 
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -48,36 +54,27 @@ Add to your Claude Desktop config file:
 }
 ```
 
-### Claude Code (Terminal)
-
-For Claude Code users, add the MCP server using the command line:
+### Claude Code
 
 ```bash
 claude mcp add web-reader -- mcp-web-reader
-```
-
-To verify the server is configured:
-```bash
 claude mcp list
 ```
 
 ## Usage
 
-### In Claude
-
-After configuration, use natural language commands:
-
+In Claude:
 - "Fetch content from https://example.com"
-- "Get content using browser for https://mp.weixin.qq.com/..." (for restricted sites)
+- "Get content using browser for https://mp.weixin.qq.com/..."
 - "Fetch multiple URLs: [url1, url2, url3]"
 
 ## Supported Sites
 
-- **WeChat articles** - Automatic access bypass
-- **Paywalled sites** - NYT, Time Magazine, etc.
-- **Cloudflare protected sites**
-- **JavaScript-heavy sites**
-- **CAPTCHA protected sites**
+- WeChat articles (mp.weixin.qq.com)
+- Paywalled sites (NYT, Time Magazine, etc.)
+- Cloudflare-protected sites
+- JavaScript-heavy sites
+- CAPTCHA-protected sites
 
 ## Tools
 
@@ -89,12 +86,12 @@ After configuration, use natural language commands:
 
 ## Architecture
 
-Intelligent fallback strategy:
+Intelligent fallback:
 ```
 URL Request → Jina Reader → Local Parser → Playwright Browser
 ```
 
-Auto-detects restrictions and switches to browser mode for:
+Auto-detects restrictions and switches to browser for:
 - HTTP status codes: 403, 429, 503, 520-524
 - Keywords: Cloudflare, CAPTCHA, Access Denied
 - Content patterns: Security checks, human verification
@@ -102,13 +99,11 @@ Auto-detects restrictions and switches to browser mode for:
 ## Development
 
 ```bash
-npm run dev    # Development mode with auto-rebuild
+npm run dev    # Development with auto-rebuild
 npm run build  # Build production version
 npm start      # Test run
-npx playwright install chromium  # Install browser (required)
 ```
 
 ## License
 
 MIT License
-
